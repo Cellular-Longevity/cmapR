@@ -2,7 +2,7 @@
 
 #' Adjust the data types for columns of a meta data frame
 #' 
-#' @description GCT(X) parsing initially returns data frames
+#' @description mGCT(X) parsing initially returns data frames
 #'   of row and column descriptors where all columns are of
 #'   type character. This is inconvenient for analysis, so
 #'   the goal of this function is to try and guess the
@@ -23,7 +23,7 @@
 #' # note how some column classes have changed
 #' str(fixed)
 #' 
-#' @family GCTX parsing functions
+#' @family mGCTX parsing functions
 #' @keywords internal
 fix_datatypes <- function(meta) {
     for (field.name in names(meta)) {
@@ -61,9 +61,9 @@ fix_datatypes <- function(meta) {
 }
 
 
-#' Parse row or column metadata from GCTX files
+#' Parse row or column metadata from mGCTX files
 #' 
-#' @param gctx_path the path to the GCTX file
+#' @param gctx_path the path to the mGCTX file
 #' @param dim which metadata to read (row or column)
 #' @param ids a character vector of a subset of row/column ids
 #'   for which to read the metadata
@@ -83,7 +83,7 @@ fix_datatypes <- function(meta) {
 #' ids=col_meta$id[1:10])
 #' str(col_meta_first10)
 #' 
-#' @family GCTX parsing functions
+#' @family mGCTX parsing functions
 #' @export
 read_gctx_meta <- function(gctx_path, dim="row", ids=NULL) {
   if (!file.exists(gctx_path)) {
@@ -125,9 +125,9 @@ read_gctx_meta <- function(gctx_path, dim="row", ids=NULL) {
 }
 
 
-#' Read GCTX row or column ids
+#' Read mGCTX row or column ids
 #' 
-#' @param gctx_path path to the GCTX file
+#' @param gctx_path path to the mGCTX file
 #' @param dim which ids to read (row or column)
 #' 
 #' @return a character vector of row or column ids from the provided file
@@ -141,7 +141,7 @@ read_gctx_meta <- function(gctx_path, dim="row", ids=NULL) {
 #' cid <- read_gctx_ids(gct_file, dim="column")
 #' head(cid)
 #' 
-#' @family GCTX parsing functions
+#' @family mGCTX parsing functions
 #' @export
 read_gctx_ids <- function(gctx_path, dim="row") {
   if (!file.exists(gctx_path)) {
@@ -163,7 +163,7 @@ read_gctx_ids <- function(gctx_path, dim="row") {
   return(ids)
 }
 
-#' Return a subset of requested GCTX row/colum ids
+#' Return a subset of requested mGCTX row/colum ids
 #' out of the universe of all ids
 #' 
 #' @details This is a low-level helper function
@@ -184,7 +184,7 @@ read_gctx_ids <- function(gctx_path, dim="row") {
 #' processed_ids <- cmapR:::process_ids(ids[1:10], ids)
 #' str(processed_ids)
 #' 
-#' @family GCTX parsing functions
+#' @family mGCTX parsing functions
 #' @keywords internal
 process_ids <- function(ids, all_ids, type="rid") {
   if (!is.null(ids)) {
@@ -228,9 +228,9 @@ process_ids <- function(ids, all_ids, type="rid") {
   return(list(idx=idx, ids=id_keep))
 }
 
-#' Parse a GCTX file into the workspace as a GCT object
+#' Parse a mGCTX file into the workspace as a mGCT object
 #' 
-#' @param fname path to the GCTX file on disk
+#' @param fname path to the mGCTX file on disk
 #' @param rid either a vector of character or integer
 #'   row indices or a path to a grp file containing character
 #'   row indices. Only these indicies will be parsed from the
@@ -243,9 +243,9 @@ process_ids <- function(ids, all_ids, type="rid") {
 #'   the matrix (ignoring row and column annotations)
 #'
 #' @details \code{parse_gctx} also supports parsing of plain text
-#'   GCT files, so this function can be used as a general GCT parser.
+#'   mGCT files, so this function can be used as a general mGCT parser.
 #'   
-#' @return a GCT object
+#' @return a mGCT object
 #' 
 #' @examples 
 #' gct_file <- system.file("extdata", "modzs_n25x50.gctx", package="cmapR")
@@ -257,11 +257,11 @@ process_ids <- function(ids, all_ids, type="rid") {
 #' # only the first 10 rows and columns
 #' (ds <- parse_gctx(gct_file, rid=1:10, cid=1:10))
 #' 
-#' @family GCTX parsing functions
+#' @family mGCTX parsing functions
 #' @importFrom methods new
 #' @export
 parse_gctx <- function(fname, rid=NULL, cid=NULL, matrix_only=FALSE) {
-    ds <- methods::new("GCT",
+    ds <- methods::new("mGCT",
               src = fname,
               rid = rid,
               cid = cid,
@@ -287,7 +287,7 @@ parse_gctx <- function(fname, rid=NULL, cid=NULL, matrix_only=FALSE) {
 #'   
 #'   
 #' @keywords internal
-#' @family GCTX parsing functions
+#' @family mGCTX parsing functions
 append_dim <- function(ofile, mat, extension="gct") {
   nc <- ncol(mat)
   nr <- nrow(mat)
@@ -303,34 +303,31 @@ append_dim <- function(ofile, mat, extension="gct") {
 }
 
 
-#' Write a GCT object to disk in GCT format
+#' Write a mGCT object to disk in mGCT format
 #' 
-#' @param ds the GCT object
+#' @param ds the mGCT object
 #' @param ofile the desired output filename
 #' @param precision the numeric precision at which to
 #'   save the matrix. See \code{details}.
 #' @param appenddim boolean indicating whether to append
 #'   matrix dimensions to filename
-#' @param ver the GCT version to write. See \code{details}.
+#' @param ver the mGCT version to write. See \code{details}.
 #' 
-#' @details Since GCT is text format, the higher \code{precision}
-#'   you choose, the larger the file size.
-#'   \code{ver} is assumed to be 3, aka GCT version 1.3, which supports
-#'   embedded row and column metadata in the GCT file. Any other value
-#'   passed to \code{ver} will result in a GCT version 1.2 file which
-#'   contains only the matrix data and no annotations.
+#' @details Not supported for methylation GCT, as two 
+#'   matrices cannot be written to the same text file
 #'
 #' @return silently returns NULL
 #' 
 #' @examples 
-#' # note this will create a GCT file in your current directory
+#' # note this will create a mGCT file in your current directory
 #' write_gct(ds, "dataset", precision=2)
 #' 
-#' @family GCTX parsing functions
+#' @family mGCTX parsing functions
 #' @export
 write_gct <- function(ds, ofile, precision=4, appenddim=TRUE, ver=3) {
-  if (!methods::is(ds, "GCT")) {
-    stop("ds must be a GCT object")
+  stop('Not supported for methylation GCT')
+  if (!methods::is(ds, "mGCT")) {
+    stop("ds must be a mGCT object")
   }
   # make sure it's valid
   methods::validObject(ds)
@@ -410,9 +407,9 @@ write_gct <- function(ds, ofile, precision=4, appenddim=TRUE, ver=3) {
 }
 
 
-#' Write a GCT object to disk in GCTX format
+#' Write a mGCT object to disk in mGCTX format
 #' 
-#' @param ds a GCT object
+#' @param ds a mGCT object
 #' @param ofile the desired file path for writing
 #' @param appenddim boolean indicating whether the
 #'   resulting filename will have dimensions appended
@@ -428,21 +425,21 @@ write_gct <- function(ds, ofile, precision=4, appenddim=TRUE, ver=3) {
 #' @return silently returns NULL
 #' 
 #' @examples 
-#' # note this will create a GCT file in your current directory
+#' # note this will create a mGCT file in your current directory
 #' write_gctx(ds, "dataset")
 #' 
-#' @family GCTX parsing functions
+#' @family mGCTX parsing functions
 #' @export
 write_gctx <- function(ds, ofile, appenddim=TRUE, compression_level=0,
                        matrix_only=FALSE,
                        max_chunk_kb=1024) {
-  if (!methods::is(ds, "GCT")) {
-    stop("ds must be a GCT object")
+  if (!methods::is(ds, "mGCT")) {
+    stop("ds must be a mGCT object")
   }
   # make sure it's valid
   ok <- methods::validObject(ds)
   # add dimensions to filename if desired
-  if (appenddim) ofile <- append_dim(ofile, ds@mat, extension="gctx")
+  if (appenddim) ofile <- append_dim(ofile, ds@meth_mat, extension="gctx")
   # check if the file already exists
   if (file.exists(ofile)) {
     message(ofile, " exists, removing")
@@ -464,17 +461,21 @@ write_gctx <- function(ds, ofile, appenddim=TRUE, compression_level=0,
                              "integer" = 32)
   elem_per_kb <- max_chunk_kb * 8 / bits_per_element
   # assume matrix is of dimensions row_dim x col_dim 
-  row_dim <- nrow(ds@mat)
-  col_dim <- ncol(ds@mat)
+  row_dim <- nrow(ds@meth_mat)
+  col_dim <- ncol(ds@meth_mat)
   row_chunk_size <- min(row_dim, 1000)
   # column chunk, such that row * col <= max_chunk_kb
   col_chunk_size <- min(((max_chunk_kb * elem_per_kb) %/% row_chunk_size),
                         col_dim)
   chunking <- c(row_chunk_size, col_chunk_size) 
   message(paste(c("chunk sizes:", chunking), collapse="\t"))
-  rhdf5::h5createDataset(ofile, "0/DATA/0/matrix", dim(ds@mat), chunk=chunking,
+  # write the methylation matrix and the coverage matrix
+  rhdf5::h5createDataset(ofile, "0/DATA/0/methylation_matrix", dim(ds@meth_mat), chunk=chunking,
                          level=compression_level)
-  rhdf5::h5write(ds@mat, ofile, "0/DATA/0/matrix")
+  rhdf5::h5write(ds@meth_mat, ofile, "0/DATA/0/methylation_matrix")
+  rhdf5::h5createDataset(ofile, "0/DATA/0/coverage_matrix", dim(ds@cov_mat), chunk=chunking,
+                         level=compression_level)
+  rhdf5::h5write(ds@cov_mat, ofile, "0/DATA/0/coverage_matrix")
   # write annotations
   rhdf5::h5write(as.character(ds@rid), ofile, "0/META/ROW/id")
   rhdf5::h5write(as.character(ds@cid), ofile, "0/META/COL/id")
@@ -490,14 +491,14 @@ write_gctx <- function(ds, ofile, appenddim=TRUE, compression_level=0,
   }
   # add the version annotation and close
   fid <- rhdf5::H5Fopen(ofile)
-  rhdf5::h5writeAttribute("GCTX1.0", fid, "version")
+  rhdf5::h5writeAttribute("mGCTX1.0", fid, "version")
   rhdf5::H5Fclose(fid)
 }
 
-#' Update the matrix of an existing GCTX file
+#' Update the matrix of an existing mGCTX file
 #' 
 #' @param x an array of data
-#' @param ofile the filename of the GCTX to update
+#' @param ofile the filename of the mGCTX to update
 #' @param rid integer indices or character ids of the rows
 #'   to update
 #' @param cid integer indices or character ids of the columns
@@ -523,6 +524,7 @@ write_gctx <- function(ds, ofile, appenddim=TRUE, compression_level=0,
 #' }
 #' @export
 update_gctx <- function(x, ofile, rid=NULL, cid=NULL) {
+  stop('TODO')
   # x must be numeric
   stopifnot(is.numeric(x))
   # must give us at least one of rid or cid
@@ -606,7 +608,7 @@ update_gctx <- function(x, ofile, rid=NULL, cid=NULL) {
   }
 }
 
-#' Write a \code{data.frame} of meta data to GCTX file
+#' Write a \code{data.frame} of meta data to mGCTX file
 #' 
 #' @param ofile the desired file path for writing
 #' @param df the \code{data.frame} of annotations
@@ -617,10 +619,10 @@ update_gctx <- function(x, ofile, rid=NULL, cid=NULL) {
 #' 
 #' @examples 
 #' \dontrun{
-#' # assume ds is a GCT object
+#' # assume ds is a mGCT object
 #' write_gctx_meta("/my/file/path", cdesc_char, dimension="col")
 #' }
-#' @family GCTX parsing functions
+#' @family mGCTX parsing functions
 #' @keywords internal
 write_gctx_meta <- function(ofile, df, dimension="row") {
   path <- if ((dimension=="row")) "0/META/ROW/" else "0/META/COL/"

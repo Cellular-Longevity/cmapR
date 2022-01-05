@@ -1,18 +1,21 @@
 ########################################
-### GCT class and method definitions ###
+### mGCT class and method definitions ##
 ########################################
 
-#' An S4 class to represent a GCT object
+#' An S4 class to represent a mGCT object
 #' 
-#' @slot mat a numeric matrix
+#' @slot meth_mat a numeric matrix of methylation percentage
+#' @slot cov_mat a numeric matrix of methylation coverage
 #' @slot rid a character vector of row ids
 #' @slot cid a character vector of column ids
 #' @slot rdesc a \code{data.frame} of row descriptors
 #' @slot rdesc a \code{data.frame} of column descriptors
 #' @slot src a character indicating the source (usually file path) of the data
 #' 
-#' @description The GCT class serves to represent annotated
-#'   matrices. The \code{mat} slot contains said data and the
+#' @description The mGCT class is an extension of the normal GCT class, which
+#'   contains slots for two data matrices, and additional data matrix parsing
+#'   utilities. The \code{meth_mat} slot contains methylation percentages, 
+#'   the \code{cov_mat} slot contains methylation coverage,
 #'   \code{rdesc} and \code{cdesc} slots contain data frames with
 #'   annotations about the rows and columns, respectively
 #'   
@@ -20,10 +23,11 @@
 #' \code{\link{write_gctx}}, \code{\link{read_gctx_meta}},
 #' \code{\link{read_gctx_ids}}
 #' @seealso visit \url{http://clue.io/help} for more information on the
-#'   GCT format
-methods::setClass("GCT",
+#'   mGCT format
+methods::setClass("mGCT",
                   methods::representation(
-                    mat = "matrix",
+                    meth_mat = "matrix",
+                    cov_mat = "matrix",
                     rid = "character",
                     cid = "character",
                     rdesc = "data.frame",
@@ -34,23 +38,34 @@ methods::setClass("GCT",
 )
 
 
-## ----set up methods for checking GCT validity----
-methods::setValidity("GCT",
+## ----set up methods for checking mGCT validity----
+methods::setValidity("mGCT",
                      function(object) {
                        # check whether dimensions of various
                        # slots are in sync
-                       m <- mat(object)
+                       m_m <- meth_mat(object)
+                       m_c <- cov_mat(object)
                        rid <- ids(object)
                        cid <- ids(object, dim="column")
                        rdesc <- meta(object)
                        cdesc <- meta(object, dim="column")
-                       nrows <- nrow(m)
-                       ncols <- ncol(m)
-                       if (nrows != length(rid)) {
+                       nrows_m <- nrow(m_m)
+                       nrows_c <- nrow(m_c)
+                       ncols_m <- ncol(m_m)
+                       ncols_c <- ncol(m_c)
+                       if (nrows_m != nrows_c){
+                        return(
+                          "methylation and coverage matrix must have same number of rows")
+                       }
+                       if (ncols_m != ncols_c){
+                        return(
+                          "methylation and coverage matrix must have same number of cols")
+                       }
+                       if (nrows_m != length(rid)) {
                          return(
                       "rid must be the same length as number of matrix rows")
                        }
-                       if (ncols != length(cid)) {
+                       if (ncols_m != length(cid)) {
                          return(
                     "cid must be the same length as number of matrix columns")
                        }
@@ -60,12 +75,12 @@ methods::setValidity("GCT",
                        if (any(duplicated(rid))) {
                          return("rid must be unique")
                        }
-                       if (nrow(cdesc) != ncols & nrow(cdesc) != 0) {
+                       if (nrow(cdesc) != ncols_m & nrow(cdesc) != 0) {
                          return(paste(
                            "cdesc must either have 0 rows or the",
                            "same number of rows as matrix has columns"))
                        }
-                       if (nrow(rdesc) != nrows & nrow(rdesc) != 0) {
+                       if (nrow(rdesc) != nrows_m & nrow(rdesc) != 0) {
                          return(paste(
                            "rdesc must either have 0 rows or the same number",
                            "of rows as matrix has rows"))
@@ -76,26 +91,28 @@ methods::setValidity("GCT",
                      }
 )
 
-## ----define the initialization method for the GCT class----
+## ----define the initialization method for the mGCT class----
 methods::setMethod("initialize",
-                   signature = "GCT",
-                   definition = function(.Object, mat=NULL, rdesc=NULL,
+                   signature = "mGCT",
+                   definition = function(.Object, meth_mat=NULL,
+                                         cov_mat=NULL, rdesc=NULL,
                                          cdesc=NULL,
                                          src=NULL, rid=NULL, cid=NULL,
                                          matrix_only=FALSE) {
                      # if we were supplied a matrix and annotations, use them
-                     if (!is.null(mat)) {
-                       .Object@mat <- mat
+                     if (!is.null(meth_mat)) {
+                       .Object@meth_mat <- meth_mat
+                       .Object@cov_mat <- cov_mat
                        # if given rid and cid, use those as well
                        if (!is.null(rid)) {
                          .Object@rid <- rid
                        } else {
-                         .Object@rid <- rownames(mat)
+                         .Object@rid <- rownames(meth_mat)
                        }
                        if (!is.null(cid)) {
                          .Object@cid <- cid
                        } else {
-                         .Object@cid <- colnames(mat)
+                         .Object@cid <- colnames(meth_mat)
                        }
                        if (!is.null(rdesc)) {
                          .Object@rdesc <- rdesc
@@ -104,8 +121,10 @@ methods::setMethod("initialize",
                          .Object@cdesc <- cdesc
                        }
                        # make sure rid, cid and dimnames of mat in sync
-                       dimnames(.Object@mat) <- list(.Object@rid, .Object@cid)
+                       dimnames(.Object@meth_mat) <- list(.Object@rid, .Object@cid)
+                       dimnames(.Object@cov_mat) <- list(.Object@rid, .Object@cid)
                      } else if (!is.null(src)) {
+                       stop('TODO')
                        # we were not given a matrix, were we given a src file?
                        # check to make sure it's either .gct or .gctx
                        if (! (grepl(".gct$", src) || grepl(".gctx$", src) ))
@@ -291,20 +310,21 @@ methods::setMethod("initialize",
                    }
 )
 
-#' Initialize an object of class \code{GCT}
-#' @param mat a matrix
+#' Initialize an object of class \code{mGCT}
+#' @param meth_mat a matrix of methylation percentages
+#' @param cov_mat a matrix of sequencing coverages
 #' @param rdesc a \code{data.frame} of row metadata
 #' @param cdesc a \code{data.frame} of column metadata
-#' @param src path to a GCT file to read
+#' @param src path to a mGCT file to read
 #' @param rid vector of character identifiers for rows
 #' @param cid vector of character identifiers for columns
 #' @param matrix_only logical indicating whether to read just the matrix
 #'   data from \code{src}
 #'   
 #' @details 
-#'   If \code{mat} is provided, \code{rid} and \code{cid} are treated as
+#'   If \code{meth_mat} is provided, \code{rid} and \code{cid} are treated as
 #'   the row and column identifiers for the matrix and are assigned to the
-#'   \code{rid} and \code{cid} slots of the \code{GCT} object.
+#'   \code{rid} and \code{cid} slots of the \code{mGCT} object.
 #'   
 #'   If \code{mat} is not provided but \code{src} is provided,
 #'   \code{rid} and \code{cid} are treated as filters. Data will be read from
@@ -313,39 +333,39 @@ methods::setMethod("initialize",
 #'   In a similar manner, \code{matrix_only} controls whether the
 #'   row and column metadata are also read from the \code{src} file path.
 #'   
-#' @returns a \code{GCT} object
+#' @returns a \code{mGCT} object
 #' @examples 
 #' # an empty object
-#' (g <- GCT())
+#' (g <- mGCT())
 #' # with a matrix
 #' # note we must specify row and column ids
-#' (g <- GCT(mat=matrix(rnorm(100), nrow=10),
+#' (g <- mGCT(mat=matrix(rnorm(100), nrow=10),
 #'           rid=letters[1:10], cid=letters[1:10]))
 #' # from file
 #' gct_file <- system.file("extdata", "modzs_n25x50.gctx", package="cmapR")
-#' (g <- GCT(src=gct_file))
-#' @family GCTX parsing functions
+#' (g <- mGCT(src=gct_file))
+#' @family mGCTX parsing functions
 #' @importFrom methods new
 #' @export
-GCT <- function(mat=NULL, rdesc=NULL, cdesc=NULL,
+mGCT <- function(meth_mat=NULL, cov_mat=NULL, rdesc=NULL, cdesc=NULL,
                 src=NULL, rid=NULL, cid=NULL,
                 matrix_only=FALSE) {
-  methods::new("GCT", mat=mat, rdesc=rdesc, cdesc=cdesc,
+  methods::new("mGCT", meth_mat=meth_mat, cov_mat=cov_mat, rdesc=rdesc, cdesc=cdesc,
       src=src, rid=rid, cid=cid, matrix_only=matrix_only)
 }
 
 ###########################################
-### accessor functions for GCT objects  ###
+### accessor functions for mGCT objects  ###
 ###########################################
 
-# set method for displaying a GCT object
+# set method for displaying a mGCT object
 # just use the 'str' function to show its structure
-setMethod("show", methods::signature("GCT"), function(object) {
+setMethod("show", methods::signature("mGCT"), function(object) {
   utils::str(object)
 })
 
-#' Extract or set the matrix of GCT object
-#' @param g the GCT object
+#' Extract or set the matrix of mGCT object
+#' @param g the mGCT object
 #' @param value a numeric matrix
 #' @return a matrix
 #' @examples 
@@ -353,27 +373,43 @@ setMethod("show", methods::signature("GCT"), function(object) {
 #' m <- mat(ds)
 #' # set the matrix
 #' mat(ds) <- matrix(0, nrow=nrow(m), ncol=ncol(m))
-#' @family GCT accessor methods
+#' @family mGCT accessor methods
 #' @export
-methods::setGeneric("mat", function(g) {
-  standardGeneric("mat")
+methods::setGeneric("meth_mat", function(g) {
+  standardGeneric("meth_mat")
 })
-#' @rdname mat
-methods::setMethod("mat", "GCT", function(g) g@mat)
+methods::setGeneric("cov_mat", function(g) {
+  standardGeneric("cov_mat")
+})
+#' @rdname meth_mat
+methods::setMethod("meth_mat", "mGCT", function(g) g@meth_mat)
 #' @export
-#' @rdname mat
-methods::setGeneric("mat<-", function(g, value) {
-  standardGeneric("mat<-")
+#' @rdname cov_mat
+methods::setMethod("cov_mat", "mGCT", function(g) g@cov_mat)
+#' @export
+#' @rdname meth_mat
+methods::setGeneric("meth_mat<-", function(g, value) {
+  standardGeneric("meth_mat<-")
 })
-#' @rdname mat
-methods::setMethod("mat<-", "GCT", function(g, value) {
-  g@mat <- value
+#' @rdname cov_mat
+methods::setGeneric("cov_mat<-", function(g, value) {
+  standardGeneric("cov_mat<-")
+})
+#' @rdname meth_mat
+methods::setMethod("meth_mat<-", "mGCT", function(g, value) {
+  g@meth_mat <- value
+  methods::validObject(g)
+  return(g)
+})
+#' @rdname cov_mat
+methods::setMethod("cov_mat<-", "mGCT", function(g, value) {
+  g@cov_mat <- value
   methods::validObject(g)
   return(g)
 })
 
-#' Extract the or set row or column ids of a GCT object
-#' @param g the GCT object
+#' Extract the or set row or column ids of a mGCT object
+#' @param g the mGCT object
 #' @param dimension the dimension to extract/update ['row' or 'column']
 #' @param value a character vector
 #' @return a vector of row ids
@@ -386,13 +422,13 @@ methods::setMethod("mat<-", "GCT", function(g, value) {
 #' ids(ds) <- as.character(1:length(rids))
 #' # set cids
 #' ids(ds, "column") <- as.character(1:length(cids))
-#' @family GCT accessor methods
+#' @family mGCT accessor methods
 #' @export
 methods::setGeneric("ids", function(g, dimension="row")  {
   standardGeneric("ids")
 })
 #' @rdname ids
-methods::setMethod("ids", "GCT", function(g, dimension="row") {
+methods::setMethod("ids", "mGCT", function(g, dimension="row") {
   dimension <- tolower(dimension)
   if (dimension == "col") dimension <- "column"
   stopifnot(dimension %in% c("row", "column"))
@@ -404,7 +440,7 @@ methods::setGeneric("ids<-", function(g, dimension="row", value)  {
   standardGeneric("ids<-")
 })
 #' @rdname ids
-methods::setMethod("ids<-", "GCT", function(g, dimension="row", value) {
+methods::setMethod("ids<-", "mGCT", function(g, dimension="row", value) {
   dimension <- tolower(dimension)
   if (dimension == "col") dimension <- "column"
   stopifnot(dimension %in% c("row", "column"))
@@ -417,8 +453,8 @@ methods::setMethod("ids<-", "GCT", function(g, dimension="row", value) {
   return(g)
 })
 
-#' Extract the or set metadata of a GCT object
-#' @param g the GCT object
+#' Extract the or set metadata of a mGCT object
+#' @param g the mGCT object
 #' @param dimension the dimension to extract/update ['row' or 'column']
 #' @param value a data.frame
 #' @return a data.frame
@@ -432,13 +468,13 @@ methods::setMethod("ids<-", "GCT", function(g, dimension="row", value) {
 #' # set cdesc
 #' meta(ds, dim="column") <- data.frame(x=sample(letters, nrow(cdesc),
 #'   replace=TRUE))
-#' @family GCT accessor methods
+#' @family mGCT accessor methods
 #' @export
 methods::setGeneric("meta", function(g, dimension="row")  {
   standardGeneric("meta")
 })
 #' @rdname meta
-methods::setMethod("meta", "GCT", function(g, dimension="row") {
+methods::setMethod("meta", "mGCT", function(g, dimension="row") {
   dimension <- tolower(dimension)
   if (dimension == "col") dimension <- "column"
   stopifnot(dimension %in% c("row", "column"))
@@ -450,7 +486,7 @@ methods::setGeneric("meta<-", function(g, dimension="row", value)  {
   standardGeneric("meta<-")
 })
 #' @rdname meta
-methods::setMethod("meta<-", "GCT", function(g, dimension="row", value) {
+methods::setMethod("meta<-", "mGCT", function(g, dimension="row", value) {
   dimension <- tolower(dimension)
   if (dimension == "col") dimension <- "column"
   stopifnot(dimension %in% c("row", "column"))
@@ -479,6 +515,7 @@ methods::setMethod("meta<-", "GCT", function(g, dimension="row", value) {
 #' @importFrom SummarizedExperiment SummarizedExperiment
 #' @importFrom methods validObject
 setAs("GCT", "SummarizedExperiment", function(from) {
+  stop('TODO')
   stopifnot(methods::validObject(from))
   SummarizedExperiment::SummarizedExperiment(
     assays = list(exprs = mat(from)), 

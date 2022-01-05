@@ -1,4 +1,4 @@
-#' Transform a GCT object in to a long form \code{\link{data.table}}
+#' Transform a mGCT object in to a long form \code{\link{data.table}}
 #' (aka 'melt')
 #' 
 #' @description Utilizes the \code{\link{melt.data.table}} function to
@@ -6,7 +6,7 @@
 #'   matrix into long form. Optionally can include the row and column
 #'   annotations in the transformed \code{\link{data.table}}.
 #'   
-#' @param g the GCT object
+#' @param g the mGCT object
 #' @param keep_rdesc boolean indicating whether to keep the row
 #'   descriptors in the final result
 #' @param keep_cdesc boolean indicating whether to keep the column
@@ -32,16 +32,17 @@
 #' # ignore row/column meta
 #' head(melt_gct(ds, keep_rdesc = FALSE, keep_cdesc = FALSE))
 #' 
-#' @family GCT utilities
+#' @family mGCT utilities
 #' @export
 setGeneric("melt_gct", function(g, suffixes=NULL, remove_symmetries=FALSE,
                                 keep_rdesc=TRUE, keep_cdesc=TRUE, ...) {
   standardGeneric("melt_gct")
 })
 #' @rdname melt_gct
-setMethod("melt_gct", signature("GCT"),
+setMethod("melt_gct", signature("mGCT"),
           function(g, suffixes, remove_symmetries=FALSE,
                    keep_rdesc=TRUE, keep_cdesc=TRUE, ...) {
+          stop('TODO')
           # melt a gct object's matrix into a data.frame and merge
           # row and column
           # annotations back in, using the provided suffixes
@@ -62,7 +63,7 @@ setMethod("melt_gct", signature("GCT"),
           if (nrow(cdesc) == 0) cdesc <- data.frame(id=cid)
           # first, check if matrix is symmetric
           # if it is, use only the upper triangle
-          message("melting GCT object...")
+          message("melting mGCT object...")
           if (remove_symmetries & isSymmetric(m)) {
             m[upper.tri(m, diag=FALSE)] <- NA
           }
@@ -169,7 +170,7 @@ subset_to_ids <- function(df, ids) {
 #' @param g a gct object
 #' @param rid a vector of character ids or integer indices for ROWS
 #' @param cid a vector of character ids or integer indices for COLUMNS
-#' @return a GCT object
+#' @return a mGCT object
 #' @examples
 #' # first 10 rows and columns by index
 #' (a <- subset_gct(ds, rid=1:10, cid=1:10))
@@ -182,13 +183,13 @@ subset_to_ids <- function(df, ids) {
 #' 
 #' identical(a, b) # TRUE
 #' 
-#' @family GCT utilities
+#' @family mGCT utilities
 #' @export
 setGeneric("subset_gct", function(g, rid=NULL, cid=NULL) {
   standardGeneric("subset_gct")
 })
 #' @rdname subset_gct
-setMethod("subset_gct", signature("GCT"),
+setMethod("subset_gct", signature("mGCT"),
           function(g, rid, cid) {
           # ids can either be a vector of character strings corresponding
           # to row / column ids in the gct object, or integer vectors
@@ -232,34 +233,37 @@ setMethod("subset_gct", signature("GCT"),
           # make sure ordering is right
           rid <- ref_rid[ridx]
           cid <- ref_cid[cidx]
-          m <- mat(g)
-          newm <- matrix(m[ridx, cidx], nrow=length(rid),
-                         ncol=length(cid))
+          m_m <- meth_mat(g)
+          m_c <- cov_mat(g)
+          newm_m <- matrix(m_m[ridx, cidx], nrow=length(rid),
+                           ncol=length(cid))
+          newm_c <- matrix(m_c[ridx, cidx], nrow=length(rid),
+                           ncol=length(cid))
           # make sure annotations row ordering matches
           # matrix, rid, and cid
           rdesc <- meta(g)
           cdesc <- meta(g, dimension="col")
           newrdesc <- subset_to_ids(rdesc, rid)
           newcdesc <- subset_to_ids(cdesc, cid)
-          newg <- GCT(mat=newm, rid=rid, cid=cid,
+          newg <- mGCT(meth_mat=newm_m, cov_mat=newm_c, rid=rid, cid=cid,
                       rdesc=newrdesc, cdesc=newcdesc)
-          if (any(dim(newm) == 0)) {
+          if (any(dim(newm_m) == 0)) {
             warning("one or more returned dimension is length 0 ",
                     "check that at least some of the provided rid and/or ",
-                    "cid values have matches in the GCT object supplied")
+                    "cid values have matches in the mGCT object supplied")
           }
           return(newg)
 })
 
-#' Merge two GCT objects together
+#' Merge two mGCT objects together
 #'
-#' @param g1 the first GCT object
-#' @param g2 the second GCT object
+#' @param g1 the first mGCT object
+#' @param g2 the second mGCT object
 #' @param dim the dimension on which to merge (row or column)
 #' @param matrix_only boolean idicating whether to keep only the
 #'   data matrices from \code{g1} and \code{g2} and ignore their
 #'   row and column meta data
-#' @return a GCT object
+#' @return a mGCT object
 #' @examples
 #' # take the first 10 and last 10 rows of an object
 #' # and merge them back together
@@ -267,13 +271,13 @@ setMethod("subset_gct", signature("GCT"),
 #' (b <- subset_gct(ds, rid=969:978))
 #' (merged <- merge_gct(a, b, dim="row"))
 #' 
-#' @family GCT utilities
+#' @family mGCT utilities
 #' @export
 setGeneric("merge_gct", function(g1, g2, dim="row", matrix_only=FALSE) {
   standardGeneric("merge_gct")
 })
 #' @rdname merge_gct
-setMethod("merge_gct", signature("GCT", "GCT"),
+setMethod("merge_gct", signature("mGCT", "mGCT"),
           function(g1, g2, dim, matrix_only) {
           # helper function to add new rows to a data.table
           add_new_records <- function(df1, df2, id_col="id") {
@@ -292,10 +296,19 @@ setMethod("merge_gct", signature("GCT", "GCT"),
             # first na pad the matrices
             col_universe <- union(ids(g1, dimension="col"),
                                   ids(g2, dimension="col"))
-            m1 <- na_pad_matrix(mat(g1), col_universe = col_universe)
-            m2 <- na_pad_matrix(mat(g2), col_universe = col_universe)
+
+            # do for methylation matrix
+            m1 <- na_pad_matrix(meth_mat(g1), col_universe = col_universe)
+            m2 <- na_pad_matrix(meth_mat(g2), col_universe = col_universe)
             idx <- match(colnames(m1), colnames(m2))
-            m <- rbind(m1, m2[, idx])
+            m_m <- rbind(m1, m2[, idx])
+
+            # do for coverage matrix
+            m1 <- na_pad_matrix(cov_mat(g1), col_universe = col_universe)
+            m2 <- na_pad_matrix(cov_mat(g2), col_universe = col_universe)
+            idx <- match(colnames(m1), colnames(m2))
+            m_c <- rbind(m1, m2[, idx])
+
             if (!matrix_only) {
               # we're just appending rows so don't need to do anything
               # special with the rid or rdesc. just cat them
@@ -307,9 +320,9 @@ setMethod("merge_gct", signature("GCT", "GCT"),
                                        meta(g2, dimension="col"))
               idx <- match(colnames(m), cdesc$id)
               cdesc <- cdesc[idx, ]
-              newg <- methods::new("GCT", mat=m, rdesc=rdesc, cdesc=cdesc)
+              newg <- methods::new("mGCT", meth_mat=m_m, cov_mat=m_c, rdesc=rdesc, cdesc=cdesc)
             } else {
-              newg <- methods::new("GCT", mat=m)
+              newg <- methods::new("mGCT", meth_mat=m_m, cov_mat=m_c)
             }
           }
           else if (dim == "col") {
@@ -318,10 +331,19 @@ setMethod("merge_gct", signature("GCT", "GCT"),
             # g2@mat so that they are in sync with g1@mat
             # first na pad the matrices
             row_universe <- union(ids(g1), ids(g2))
-            m1 <- na_pad_matrix(mat(g1), row_universe = row_universe)
-            m2 <- na_pad_matrix(mat(g2), row_universe = row_universe)
+
+            # do for methylation matrix
+            m1 <- na_pad_matrix(meth_mat(g1), row_universe = row_universe)
+            m2 <- na_pad_matrix(meth_mat(g2), row_universe = row_universe)
             idx <- match(rownames(m1), rownames(m2))
-            m <- cbind(m1, m2[idx, ])
+            m_m <- cbind(m1, m2[idx, ])
+
+            # do for coverage matrix
+            m1 <- na_pad_matrix(cov_mat(g1), row_universe = row_universe)
+            m2 <- na_pad_matrix(cov_mat(g2), row_universe = row_universe)
+            idx <- match(rownames(m1), rownames(m2))
+            m_c <- cbind(m1, m2[idx, ])
+
             if (!matrix_only) {
               # we're just appending rows so don't need to do anything
               # special with the rid or rdesc. just cat them
@@ -333,9 +355,9 @@ setMethod("merge_gct", signature("GCT", "GCT"),
               rdesc <- add_new_records(meta(g1), meta(g2))
               idx <- match(rownames(m), rdesc$id)
               rdesc <- rdesc[idx, ]
-              newg <- methods::new("GCT", mat=m, rdesc=rdesc, cdesc=cdesc)
+              newg <- methods::new("mGCT", meth_mat=m_m, cov_mat=m_c, rdesc=rdesc, cdesc=cdesc)
             } else {
-              newg <- methods::new("GCT", mat=m)
+              newg <- methods::new("mGCT", meth_mat=m_m, cov_mat=m_c)
             }
           } else {
             stop("dimension must be either row or col")
@@ -356,7 +378,7 @@ setMethod("merge_gct", signature("GCT", "GCT"),
 #' @param as_data_frame boolean indicating whether to ensure
 #'   the returned object is a \code{\link{data.frame}} instead of a
 #'   \code{\link{data.table}}.
-#'   This ensures compatibility with GCT object conventions,
+#'   This ensures compatibility with mGCT object conventions,
 #'   that is, the \code{rdesc} and \code{cdesc} slots must be strictly
 #'   \code{\link{data.frame}} objects.
 #'   
@@ -400,25 +422,25 @@ merge_with_precedence <- function(x, y, by, allow.cartesian=TRUE,
 }
 
 
-#' Add annotations to a GCT object
+#' Add annotations to a mGCT object
 #' 
-#' @description Given a GCT object and either a \code{\link{data.frame}} or
+#' @description Given a mGCT object and either a \code{\link{data.frame}} or
 #' a path to an annotation table, apply the annotations to the
 #' gct using the given \code{keyfield}.
 #' 
-#' @param g a GCT object
+#' @param g a mGCT object
 #' @param annot a \code{\link{data.frame}} or path to text table of annotations
 #' @param dim either 'row' or 'column' indicating which dimension
 #'   of \code{g} to annotate
 #' @param keyfield the character name of the column in \code{annot} that 
 #'   matches the row or column identifiers in \code{g}
 #'   
-#' @return a GCT object with annotations applied to the specified
+#' @return a mGCT object with annotations applied to the specified
 #'   dimension
 #'   
 #' @examples 
 #' gct_path <- system.file("extdata", "modzs_n25x50.gctx", package="cmapR")
-#' # read the GCT file, getting the matrix only
+#' # read the mGCT file, getting the matrix only
 #' g <- parse_gctx(gct_path, matrix_only=TRUE)
 #' # separately, read the column annotations and then apply them using
 #' # annotate_gct
@@ -426,13 +448,13 @@ merge_with_precedence <- function(x, y, by, allow.cartesian=TRUE,
 #' g <- annotate_gct(g, cdesc, dim="col", keyfield="id")
 #' 
 #' 
-#' @family GCT utilities
+#' @family mGCT utilities
 #' @export
 setGeneric("annotate_gct", function(g, annot, dim="row", keyfield="id") {
   standardGeneric("annotate_gct")
 })
 #' @rdname annotate_gct
-setMethod("annotate_gct", signature("GCT"),
+setMethod("annotate_gct", signature("mGCT"),
           function(g, annot, dim, keyfield) {
           if (is.character(annot)) {
             # given a file path, try to read it in
@@ -475,32 +497,32 @@ setMethod("annotate_gct", signature("GCT"),
 })
 
 
-#' Transpose a GCT object
+#' Transpose a mGCT object
 #' 
-#' @param g the \code{GCT} object
+#' @param g the \code{mGCT} object
 #' 
-#' @return a modified verion of the input \code{GCT} object
+#' @return a modified verion of the input \code{mGCT} object
 #'   where the matrix has been transposed and the row and column
 #'   ids and annotations have been swapped.
 #'   
 #' @examples 
 #' transpose_gct(ds)
 #' 
-#' @family GCT utilties
+#' @family mGCT utilties
 #' @export
 setGeneric("transpose_gct", function(g) {
   standardGeneric("transpose_gct")
 })
 #' @rdname transpose_gct
-setMethod("transpose_gct", signature("GCT"), function(g) {
-  return(new("GCT", mat=t(mat(g)), rid=ids(g, dimension="col"), cid=ids(g),
+setMethod("transpose_gct", signature("mGCT"), function(g) {
+  return(new("mGCT", meth_mat=t(meth_mat(g)), cov_mat=t(cov_mat(g)), rid=ids(g, dimension="col"), cid=ids(g),
               rdesc=meta(g, dimension="col"), cdesc=meta(g)))
 })
 
 
-#' Convert a GCT object's matrix to ranks
+#' Convert a mGCT object's matrix to ranks
 #' 
-#' @param g the \code{GCT} object to rank
+#' @param g the \code{mGCT} object to rank
 #' @param dim the dimension along which to rank
 #'   (row or column)
 #' @param decreasing boolean indicating whether
@@ -517,14 +539,15 @@ setMethod("transpose_gct", signature("GCT"), function(g) {
 #' plot(m[, 1:3], m_ranked[, 1:3],
 #'   xlab="score", ylab="rank")
 #' 
-#' @family GCT utilities
+#' @family mGCT utilities
 #' @importFrom matrixStats rowRanks colRanks
 #' @export
 setGeneric("rank_gct", function(g, dim="col", decreasing=TRUE) {
   standardGeneric("rank_gct")
 })
 #' @rdname rank_gct
-setMethod("rank_gct", signature("GCT"), function(g, dim, decreasing=TRUE) {
+setMethod("rank_gct", signature("mGCT"), function(g, dim, decreasing=TRUE) {
+  stop('TODO')
   # check to make sure dim is allowed
   if (dim=="column") dim <- "col"
   if (!(dim %in% c("row","col"))){
@@ -712,10 +735,10 @@ align_matrices <- function(m1, m2, ..., L=NULL, na.pad=TRUE, as.3D=TRUE) {
   }
 }
 
-# TODO: update to act as an S4 method for GCT class
-#' Exract elements from a GCT matrix
+# TODO: update to act as an S4 method for mGCT class
+#' Exract elements from a mGCT matrix
 #' 
-#' @param g the GCT object
+#' @param g the mGCT object
 #' @param row_field the column name in rdesc to search on
 #' @param col_field the column name in cdesc to search on
 #' @param rdesc a \code{data.frame} of row annotations
@@ -725,7 +748,7 @@ align_matrices <- function(m1, m2, ..., L=NULL, na.pad=TRUE, as.3D=TRUE) {
 #' @param col_keyfield the column name of \code{cdesc} to use
 #'    for annotating the rows of \code{g}
 #' 
-#' @description extract the elements from a \code{GCT} object
+#' @description extract the elements from a \code{mGCT} object
 #'   where the values of \code{row_field} and \code{col_field}
 #'   are the same. A concrete example is if \code{g} represents
 #'   a matrix of signatures of genetic perturbations, and you wan
@@ -753,6 +776,7 @@ align_matrices <- function(m1, m2, ..., L=NULL, na.pad=TRUE, as.3D=TRUE) {
 extract_gct <- function(g, row_field, col_field,
                         rdesc=NULL, cdesc=NULL,
                         row_keyfield="id", col_keyfield="id") {
+  stop('TODO')
   # annotate the gct object if external annotations have been provided
   if (!is.null(rdesc)) {
     g <- annotate_gct(g, rdesc, dim="row", keyfield=row_keyfield)
@@ -795,10 +819,10 @@ extract_gct <- function(g, row_field, col_field,
   ))
 }
 
-#' Aggregate rows or columns of a GCT object that have the same value
+#' Aggregate rows or columns of a mGCT object that have the same value
 #' for a given annotation field
 #' 
-#' @param g the GCT object
+#' @param g the mGCT object
 #' @param dimension which dimension to aggregate over (either "row" or "column")
 #' @param agg_field the name of the field to aggregate
 #' @param agg_fun the function to use for aggregating
@@ -808,15 +832,15 @@ extract_gct <- function(g, row_field, col_field,
 #' correspond to a field in `cdesc`.
 #' `agg_fun` can be any function that accepts a numeric vector and returns a
 #' scalar value.
-#' The returned GCT object will contain an additional field called `n_agg` that
+#' The returned mGCT object will contain an additional field called `n_agg` that
 #' indicates the number of rows or columns that were aggregated.
 #' 
-#' @return a GCT object
+#' @return a mGCT object
 #' 
 #' @examples 
-#' # construct a simple GCT object with duplicated values in one of the row
+#' # construct a simple mGCT object with duplicated values in one of the row
 #' # annotation fields
-#' tmp <- GCT(mat=matrix(rnorm(100), nrow=20), cid=letters[1:5],
+#' tmp <- mGCT(mat=matrix(rnorm(100), nrow=20), cid=letters[1:5],
 #'            rid=LETTERS[1:20],
 #'            rdesc=data.frame(id=LETTERS[1:20],
 #'                             field=sample(c("foo", "bar", "baz"), 20,
@@ -824,14 +848,15 @@ extract_gct <- function(g, row_field, col_field,
 #'            cdesc=data.frame(id=letters[1:5]))
 aggregate_gct <- function(g, agg_field, dimension="row",
                           agg_fun=stats::median, overwrite_ids=TRUE) {
+  stop('TODO')
   # check arguments and fail if any issues
-  stopifnot(class(g) == "GCT")
+  stopifnot(class(g) == "mGCT")
   stopifnot(is.logical(overwrite_ids))
   stopifnot(dimension %in% c("row", "column"))
   # convert to shorthand
   if (dimension == "column") dimension <- "col"
   # assume we're operating on the rows
-  # if not, transpose the GCT object
+  # if not, transpose the mGCT object
   if (dimension == "col") {
     g <- transpose_gct(g)
   }
@@ -860,8 +885,8 @@ aggregate_gct <- function(g, agg_field, dimension="row",
   agg_meta <- agg_meta[, lapply(.SD, paste, collapse="|"), by=agg_field]
   # add a field to track the number of rows that were aggregated
   agg_meta$n_agg <- lengths(grps)[match(agg_meta[[agg_field]], names(grps))]
-  # reassemble into a GCT object
-  g_agg <- GCT(agg_mat)
+  # reassemble into a mGCT object
+  g_agg <- mGCT(agg_mat)
   g_agg@rdesc <- data.frame(id=names(grps))
   # apply annotations, overwriting the old id column
   agg_meta$id <- agg_meta[[agg_field]]
