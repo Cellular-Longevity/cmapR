@@ -124,12 +124,13 @@ methods::setMethod("initialize",
                        dimnames(.Object@meth_mat) <- list(.Object@rid, .Object@cid)
                        dimnames(.Object@cov_mat) <- list(.Object@rid, .Object@cid)
                      } else if (!is.null(src)) {
-                       stop('TODO')
+                       # stop('TODO')
                        # we were not given a matrix, were we given a src file?
                        # check to make sure it's either .gct or .gctx
                        if (! (grepl(".gct$", src) || grepl(".gctx$", src) ))
                          stop("Either a .gct or .gctx file must be given")
                        if (grepl(".gct$", src)) {
+                          stop('GCTX file must be used with this implementation')
                          if ( ! is.null(rid) || !is.null(cid) )
                            warning(
                              "rid and cid values may only be given for",
@@ -270,16 +271,23 @@ methods::setMethod("initialize",
                          # else convert to numeric indices
                          processed_rids <- process_ids(rid, all_rid, type="rid")
                          processed_cids <- process_ids(cid, all_cid, type="cid")
-                         # read the data matrix
-                         .Object@mat <-
+                         # read the methylation matrix
+                         .Object@meth_mat <-
                            rhdf5::h5read(
-                             src, name="0/DATA/0/matrix",
+                             src, name="0/DATA/0/methylation_matrix",
+                             index=list(processed_rids$idx, processed_cids$idx))
+                         # read the data matrix
+                         .Object@cov_mat <-
+                           rhdf5::h5read(
+                             src, name="0/DATA/0/coverage_matrix",
                              index=list(processed_rids$idx, processed_cids$idx))
                          # set the row and column ids, casting as characters
                          .Object@rid <- processed_rids$ids
                          .Object@cid <- processed_cids$ids
-                         rownames(.Object@mat) <- processed_rids$ids
-                         colnames(.Object@mat) <- processed_cids$ids
+                         rownames(.Object@meth_mat) <- processed_rids$ids
+                         colnames(.Object@meth_mat) <- processed_cids$ids
+                         rownames(.Object@cov_mat) <- processed_rids$ids
+                         colnames(.Object@cov_mat) <- processed_cids$ids
                          # get the meta data
                          if (!matrix_only) {
                            .Object@rdesc <- read_gctx_meta(

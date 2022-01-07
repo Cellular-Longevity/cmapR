@@ -456,7 +456,7 @@ write_gctx <- function(ds, ofile, appenddim=TRUE, compression_level=0,
   rhdf5::h5createGroup(ofile, "0/META/COL")
   rhdf5::h5createGroup(ofile, "0/META/ROW")
   # create and write matrix data, using chunking
-  bits_per_element <- switch(storage.mode(ds@mat),
+  bits_per_element <- switch(storage.mode(ds@meth_mat),
                              "double" = 64,
                              "integer" = 32)
   elem_per_kb <- max_chunk_kb * 8 / bits_per_element
