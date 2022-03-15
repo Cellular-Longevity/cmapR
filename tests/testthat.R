@@ -1,4 +1,4 @@
 library(testthat)
-library(cmapR)
+# library(cmapR)
 
 test_check("cmapR")
