@@ -124,136 +124,13 @@ methods::setMethod("initialize",
                        dimnames(.Object@meth_mat) <- list(.Object@rid, .Object@cid)
                        dimnames(.Object@cov_mat) <- list(.Object@rid, .Object@cid)
                      } else if (!is.null(src)) {
-                       # stop('TODO')
                        # we were not given a matrix, were we given a src file?
-                       # check to make sure it's either .gct or .gctx
+                       # check to make sure it's a .gctx
                        if (! (grepl(".gct$", src) || grepl(".gctx$", src) ))
                          stop("Either a .gct or .gctx file must be given")
                        if (grepl(".gct$", src)) {
-                          stop('GCTX file must be used with this implementation')
-                         if ( ! is.null(rid) || !is.null(cid) )
-                           warning(
-                             "rid and cid values may only be given for",
-                             ".gctx files, ignoring")
-                         # parse the .gct
-                         .Object@src <- src
-                         # get the .gct version by reading first line
-                         .Object@version <- scan(src, what="", nlines=1,
-                                                 sep="\t", quiet=TRUE)[1]
-                         # get matrix dimensions by reading second line
-                         dimensions <- scan(src, what=double(0), nlines=1,
-                                            skip=1, sep="\t", quiet=TRUE)
-                         nrmat <- dimensions[1]
-                         ncmat <- dimensions[2]
-                         if (length(dimensions) == 4) {
-                           # a #1.3 file
-                           message("parsing as GCT v1.3")
-                           nrhd <- dimensions[3]
-                           nchd <- dimensions[4]
-                         } else {
-                           # a #1.2 file
-                           message("parsing as GCT v1.2")
-                           nrhd <- 0
-                           nchd <- 0
-                         }
-                         message(paste(
-                           src, nrmat, "rows,", ncmat, "cols,", nrhd,
-                           "row descriptors,", nchd, "col descriptors"))
-                         # read in header line
-                         header <- scan(src, what="", nlines=1, skip=2,
-                                        sep="\t", quote=NULL, quiet=TRUE)
-                         # construct row header and column id's from the
-                         # header line
-                         if ( nrhd > 0 ) {
-                           rhd <- header[2:(nrhd+1)]
-                           cid <- header[-(nrhd+1):-1]
-                           col_offset <- 1
-                         }
-                         else {
-                           if (any(grepl("description", header,
-                                         ignore.case=T))) {
-                             # check for presence of description column
-                             # in v1.2 files
-                             col_offset <- 2
-                           } else {
-                             col_offset <- 1
-                           }
-                           rhd <- NULL
-                           cid <- header[(1+col_offset):length(header)]
-                         }
-                         # read in the next set of headers (column annotations)
-                         # and shape into a matrix
-                         if ( nchd > 0 ) {
-                           header <- scan(src, what="", nlines=nchd,
-                                          skip=3,
-                                          sep="\t", quote=NULL, quiet=TRUE)		
-                           header <- matrix(header, nrow=nchd, 
-                                            ncol=ncmat + nrhd + 1, byrow=TRUE)
-                           # extract the column header and column descriptions
-                           chd <- header[,1]
-                           cdesc <- header[,-(nrhd+1):-1]
-                           # need to transpose in the case where there's
-                           # only one column annotation
-                           if ( nchd == 1 )
-                             cdesc <- t(cdesc)
-                         }
-                         else {
-                           chd = NULL
-                           cdesc <- data.frame(id=cid)
-                         }
-                         # read in the data matrix and row descriptions
-                         # shape into a matrix
-                         m <- scan(src, what="", nlines=nrmat, 
-                                     skip=3 + nchd, sep="\t", quote=NULL,
-                                     quiet=TRUE)
-                         m <- matrix(m, nrow=nrmat,
-                                       ncol=ncmat + nrhd + col_offset, 
-                                       byrow=TRUE)
-                         # message(paste(dim(mat), collapse="\t"))
-                         # Extract the row id's row descriptions,
-                         # and the data matrix
-                         rid <- m[,1]
-                         if ( nrhd > 0 ) {
-                           # need as.matrix for the case where there's
-                           # only one row annotation
-                           rdesc <- as.matrix(m[,2:(nrhd + 1)])
-                           m <- matrix(as.numeric(m[,-(nrhd + 1):-1]),
-                                         nrow=nrmat, ncol=ncmat)
-                         }
-                         else {
-                           rdesc <- data.frame(id=rid)
-                           m <- matrix(as.numeric(
-                             m[, (1+col_offset):ncol(m)]),
-                             nrow=nrmat, ncol=ncmat)
-                         }
-                         # assign names to the data matrix and the
-                         # row and column descriptions
-                         dimnames(m) <- list(rid, cid)
-                         if ( nrhd > 0 ) {
-                           dimnames(rdesc) <- list(rid, rhd)
-                           rdesc <- as.data.frame(rdesc,
-                                                  stringsAsFactors=FALSE)
-                         }
-                         if ( nchd > 0 ) {
-                           cdesc <- t(cdesc)
-                           dimnames(cdesc) <- list(cid, chd)
-                           cdesc <- as.data.frame(cdesc,
-                                                  stringsAsFactors=FALSE)
-                         }
-                         # assign to the GCT slots
-                         .Object@mat <- m
-                         .Object@rid <- rownames(m)
-                         .Object@cid <- colnames(m)
-                         if (!matrix_only) {
-                           # return annotations as well as matrix
-                           .Object@rdesc <- fix_datatypes(rdesc)
-                           .Object@cdesc <- fix_datatypes(cdesc)
-                           # add id columns to rdesc and cdesc
-                           .Object@rdesc$id <- rownames(.Object@rdesc)
-                           .Object@cdesc$id <- rownames(.Object@cdesc)
-                         }
-                       }
-                       else { 
+                         stop('GCTX file must be used with this implementation')
+                       } else { 
                          # parse the .gctx
                          message("reading ", src)
                          .Object@src <- src
@@ -271,16 +148,12 @@ methods::setMethod("initialize",
                          # else convert to numeric indices
                          processed_rids <- process_ids(rid, all_rid, type="rid")
                          processed_cids <- process_ids(cid, all_cid, type="cid")
-                         # read the methylation matrix
-                         .Object@meth_mat <-
-                           rhdf5::h5read(
-                             src, name="0/DATA/0/methylation_matrix",
-                             index=list(processed_rids$idx, processed_cids$idx))
-                         # read the data matrix
-                         .Object@cov_mat <-
-                           rhdf5::h5read(
-                             src, name="0/DATA/0/coverage_matrix",
-                             index=list(processed_rids$idx, processed_cids$idx))
+                         # read the 3D array first, then assign to the respective slots
+                         meth_array <- rhdf5::h5read(
+                             src, name="0/DATA/0/matrix",
+                             index=list(processed_rids$idx, processed_cids$idx, NULL))
+                         .Object@meth_mat <- matrix(meth_array[,,1,drop=T], nrow=dim(meth_array)[1])
+                         .Object@cov_mat <- matrix(meth_array[,,2,drop=T], nrow=dim(meth_array)[1])
                          # set the row and column ids, casting as characters
                          .Object@rid <- processed_rids$ids
                          .Object@cid <- processed_cids$ids

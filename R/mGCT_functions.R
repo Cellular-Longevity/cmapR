@@ -14,7 +14,7 @@ subset_mgct_genomic <- function(mgct, chr, start, end){
 # matrix of methylation percentage, matrix of methylation coverage, sample metadata and position metadata
 make_methylation_gct <- function(meth.mat, cov.mat, sample.metadata, chr.df){
     # chr.df must have index column
-    if (!('index' %in% colnames(chr.df))){
+    if (! (('index' %in% colnames(chr.df))| ('id' %in% colnames(chr.df)))){
         chr.df$id <- paste(chr.df$chrom, chr.df$start, chr.df$end, sep='_')
     }
     
