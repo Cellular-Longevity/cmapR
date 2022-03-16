@@ -9,7 +9,7 @@ write_gctx(mgct, '~/projects/cmapR/tests/testthat/test_n5x10.gctx')
 # test read
 mgct2 <- parse_gctx('~/projects/cmapR/tests/testthat/test_n5x10.gctx')
 
-saveRDS(mgct, '~/projects/cmapR/data/ds.RData')
+save(mgct, file='~/projects/cmapR/data/ds.RData')
 
 
 identical(mgct@meth_mat, mgct2@meth_mat)

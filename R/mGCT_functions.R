@@ -3,7 +3,7 @@
 # subset to a particular genomic interval
 # intervals will be inclusive of start and end
 # currently only a single chromosome supported
-subset_mgct_genomic <- function(mgct, chr, start, end){
+subset_mgct_genomic <- function(mgct, chr, start=0, end=1e99){
     rids <- mgct@rid[mgct@rdesc$chr == chr & mgct@rdesc$start >= start &
                          mgct@rdesc$end <= end]
     return(subset_gct(mgct, rid = rids))
@@ -26,7 +26,7 @@ make_methylation_gct <- function(meth.mat, cov.mat, sample.metadata, chr.df){
     
     if((!identical(colnames(meth.mat), colnames(cov.mat))) | 
        (!identical(colnames(meth.mat), rownames(sample.metadata)))){
-        stop('colnames of meth.mat, cov.mat and rownames of samplem.metadata must be identical')
+        stop('colnames of meth.mat, cov.mat and rownames of sample.metadata must be identical')
     }
     
     mgct <- new('mGCT')
