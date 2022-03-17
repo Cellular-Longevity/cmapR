@@ -148,12 +148,34 @@ methods::setMethod("initialize",
                          # else convert to numeric indices
                          processed_rids <- process_ids(rid, all_rid, type="rid")
                          processed_cids <- process_ids(cid, all_cid, type="cid")
-                         # read the 3D array first, then assign to the respective slots
-                         meth_array <- rhdf5::h5read(
-                             src, name="0/DATA/0/matrix",
-                             index=list(processed_rids$idx, processed_cids$idx, NULL))
-                         .Object@meth_mat <- matrix(meth_array[,,1,drop=T], nrow=dim(meth_array)[1])
-                         .Object@cov_mat <- matrix(meth_array[,,2,drop=T], nrow=dim(meth_array)[1])
+                         
+                         # get number of dimensions in the hdf5 matrix
+                         lsdf <- rhdf5::h5ls(src)
+                         ndim <- length(strsplit(lsdf[lsdf$group == '/0/DATA/0' & lsdf$name=='matrix','dim'], split=' x ')[[1]])
+                         
+                         # catch case of 2D matrix at this location in the hdf5 file
+                         # in which we place the data in the meth_mat slot
+                         # and fill the cov_mat slot with NA
+                         if (ndim == 2){
+                             warning('Reading old formatted gctx, matrix information will be in object@meth_mat')
+                             # read the 2D array first, then assign to the respective slots
+                             meth_array <- rhdf5::h5read(
+                                 src, name="0/DATA/0/matrix",
+                                 index=list(processed_rids$idx, processed_cids$idx))
+                             print(dim(meth_array))
+                            .Object@meth_mat <- meth_array
+                            .Object@cov_mat <- matrix(NA, nrow = nrow(.Object@meth_mat), ncol=ncol(.Object@meth_mat))
+                         } else if (ndim == 3){
+                             # read the 3D array first, then assign to the respective slots
+                             meth_array <- rhdf5::h5read(
+                                 src, name="0/DATA/0/matrix",
+                                 index=list(processed_rids$idx, processed_cids$idx, NULL))
+                             .Object@meth_mat <- matrix(meth_array[,,1,drop=T], nrow=dim(meth_array)[1])
+                             .Object@cov_mat <- matrix(meth_array[,,2,drop=T], nrow=dim(meth_array)[1])
+
+                         } else { 
+                            stop('Dimension mismatch at 0/DATA/0/matrix in hdf5 file')
+                         }
                          # set the row and column ids, casting as characters
                          .Object@rid <- processed_rids$ids
                          .Object@cid <- processed_cids$ids
@@ -395,7 +417,7 @@ methods::setMethod("meta<-", "mGCT", function(g, dimension="row", value) {
 #' 
 #' @importFrom SummarizedExperiment SummarizedExperiment
 #' @importFrom methods validObject
-setAs("GCT", "SummarizedExperiment", function(from) {
+setAs("mGCT", "SummarizedExperiment", function(from) {
   stop('TODO')
   stopifnot(methods::validObject(from))
   SummarizedExperiment::SummarizedExperiment(
