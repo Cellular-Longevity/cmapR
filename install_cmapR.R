@@ -5,5 +5,5 @@ if (!require('BiocManager')) install.packages("BiocManager",repos = "http://cran
 if (!require('rhdf5')) BiocManager::install(c("rhdf5"))
 if (!require('prada')) BiocManager::install(c("prada"))
 
-if (!require('devtools')) install.packages("devtools",repos = "http://cran.us.r-project.org")
+if (!require('devtools')) install.packages("devtools", repos = "http://cran.us.r-project.org")
 devtools::install(pkg = '.')
