@@ -162,7 +162,6 @@ methods::setMethod("initialize",
                              meth_array <- rhdf5::h5read(
                                  src, name="0/DATA/0/matrix",
                                  index=list(processed_rids$idx, processed_cids$idx))
-                             print(dim(meth_array))
                             .Object@meth_mat <- meth_array
                             .Object@cov_mat <- matrix(NA, nrow = nrow(.Object@meth_mat), ncol=ncol(.Object@meth_mat))
                          } else if (ndim == 3){
