@@ -5,15 +5,21 @@ if(!require(aws.s3)) install.packages('aws.s3')
 # load the cmapR package
 library(cmapR)
 
-# the basic unit of this package is the 'mGCT' object, which is basically
-# composed of a few different parts
-# meth_mat: matrix of methylation values
-# cov_mat: matrix of coverage values
-# rid: row identifiers (CpG sites or genomic locations)
-# cid: row identifiers (CpG sites or genomic locations)
+# the basic unit of this package is the 'mGCT' object, which is an object
+# composed of a few different slots
+## meth_mat: matrix of methylation values
+## cov_mat: matrix of coverage values
+## rid: row identifiers (CpG sites or genomic locations)
+## cid: column identifiers (sample names)
+## rdesc: row metadata (typically chromosome, start, end)
+## cdesc: column metadata (about samples/subjects)
 
+# Here's how you can load data directly from S3 using this package
 # you may need to configure credentials if they're not available, 
 # see: https://www.gormanalysis.com/blog/connecting-to-aws-s3-with-r/
+# In order to use the functions pulling data from AWS, you need to have the `AWS_ACCESS_KEY_ID`,
+# `AWS_DEFAULT_REGION` and `AWS_SECRET_ACCESS_KEY` environment variables configured. 
+# You can set these by running `aws configure` or modifying the `~/.aws/credentials` file. 
 
 # load the methylation data from the healthspan/novogene_pilot dataset
 # this is a small dataset and easy to manipulate
@@ -80,6 +86,20 @@ mgct.sub.col2 <- subset_gct(mgct, cid=mgct@cid[1:3])
 dim(mgct.sub.col2@meth_mat)
 identical(mgct.sub.col, mgct.sub.col2)
 
+# Reading just a subset of the data, download from S3 first. 
+# I don't think this functions yet to read a subset of the data when the 
+# file is still on S3
+# a larger dataset wtih 40 samples
+object.loc <- "s3://bioinformatics-loyal/processed_methylation_data/HEALTHSPAN/GH40_RRBS/matrices_processed/methylation_filtered.gctx"
+save_object(file = 'methylation_filtered.gctx', object = object.loc)
+cdesc <- read_gctx_meta('methylation_filtered.gctx', dim='col')
+# pick saliva samples only and load those
+saliva.cid <- cdesc[cdesc$sample_type=='saliva', "id"]
+mgct.saliva <- parse_gctx('methylation_filtered.gctx', cid=saliva.cid)
+# should be 10 samples
+print(dim(mgct.saliva@meth_mat))
+
+
 # subset to a genomic coordinate set
 #   TODO: These functions need to be incorporated into the package 
 #         install, right now they're in a custom script
@@ -99,3 +119,11 @@ mgct.new <- make_methylation_gct(meth.mat=meth.mat,
                                  sample.metadata=sample.metadata,
                                  chr.df=chr.df)
 dim(mgct.new@meth_mat)
+
+
+# Would be ideal to have data subsetting directly from S3, however this logic
+# doesn't work and the whole file is downloaded to a temp directory. 
+library(aws.s3)
+object.loc <- "s3://bioinformatics-loyal/processed_methylation_data/HEALTHSPAN/GH40_RRBS/matrices_processed/methylation_filtered.gctx"
+mgct <- s3read_using(FUN = function(x) parse_gctx(x, rid=1), object = object.loc)
+
