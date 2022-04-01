@@ -4,8 +4,6 @@ if (!require('data.table')) install.packages("data.table",repos = "http://cran.u
 if (!require('BiocManager')) install.packages("BiocManager",repos = "http://cran.us.r-project.org")
 if (!require('rhdf5')) BiocManager::install(c("rhdf5"))
 if (!require('prada')) BiocManager::install(c("prada"))
-if (!require('flowCore')) BiocManager::install('flowCore')
-if (!require('SummarizedExperiment')) BiocManager::install('SummarizedExperiment')
 if (!require('matrixStats')) BiocManager::install('matrixStats')
 
 if (!require('devtools')) install.packages("devtools", repos = "http://cran.us.r-project.org")

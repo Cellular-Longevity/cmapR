@@ -17,8 +17,6 @@ Imports:
   methods,
   rhdf5,
   data.table,
-  flowCore,
-  SummarizedExperiment,
   matrixStats
 Suggests: knitr, testthat, BiocStyle, rmarkdown
 VignetteBuilder: knitr
