@@ -368,7 +368,7 @@ write_gctx <- function(ds, ofile, appenddim=FALSE, compression_level=0,
   rhdf5::h5createDataset(ofile, "0/DATA/0/matrix", c(dim(ds@meth_mat),2), chunk=chunking,
                          level=compression_level)
   # create 3D array on the fly
-  rhdf5::h5write(array(c(mgct@meth_mat, mgct@cov_mat), dim = c(nrow(mgct@meth_mat),ncol(mgct@meth_mat),2)),
+  rhdf5::h5write(array(c(ds@meth_mat, ds@cov_mat), dim = c(nrow(ds@meth_mat),ncol(ds@meth_mat),2)),
                  ofile,
                  "0/DATA/0/matrix")
   
