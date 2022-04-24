@@ -362,7 +362,7 @@ write_gctx <- function(ds, ofile, appenddim=FALSE, compression_level=0,
   # column chunk, such that row * col <= max_chunk_kb
   col_chunk_size <- min(((max_chunk_kb * elem_per_kb) %/% row_chunk_size),
                         col_dim)
-  chunking <- c(row_chunk_size, col_chunk_size) 
+  chunking <- c(row_chunk_size, col_chunk_size, 2) 
   message(paste(c("chunk sizes:", chunking), collapse="\t"))
   # write a 3D array of the methylation matrix and the coverage matrix
   rhdf5::h5createDataset(ofile, "0/DATA/0/matrix", c(dim(ds@meth_mat),2), chunk=chunking,
