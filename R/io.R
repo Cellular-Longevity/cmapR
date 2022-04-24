@@ -364,17 +364,15 @@ write_gctx <- function(ds, ofile, appenddim=FALSE, compression_level=0,
                         col_dim)
   chunking <- c(row_chunk_size, col_chunk_size, 2)  
   # create 3D array to write
-  write_3d_array <- array(c(ds@meth_mat, ds@cov_mat))
-  if(length(chunking) != length(dim(write_3d_array))){
+  write_3d_array <- array(c(ds@meth_mat, ds@cov_mat), dim = c(nrow(ds@meth_mat),ncol(ds@meth_mat),2))
+  if(length(chunking) != length(dim(write_3d_array)){
     stop('Chunking dimension must match dataset dimension')
   }
   message(paste(c("chunk sizes:", chunking), collapse="\t"))
   # write a 3D array of the methylation matrix and the coverage matrix
   rhdf5::h5createDataset(ofile, "0/DATA/0/matrix", c(dim(ds@meth_mat),2), chunk=chunking,
                          level=compression_level)
-  rhdf5::h5write(write_3d_array, dim = c(nrow(ds@meth_mat),ncol(ds@meth_mat),2)),
-                 ofile,
-                 "0/DATA/0/matrix")
+  rhdf5::h5write(write_3d_array, ofile, "0/DATA/0/matrix")
   
   # write annotations
   rhdf5::h5write(as.character(ds@rid), ofile, "0/META/ROW/id")
