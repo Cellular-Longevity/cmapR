@@ -365,7 +365,7 @@ write_gctx <- function(ds, ofile, appenddim=FALSE, compression_level=0,
   chunking <- c(row_chunk_size, col_chunk_size, 2)  
   # create 3D array to write
   write_3d_array <- array(c(ds@meth_mat, ds@cov_mat))
-  if(length(chunking) != length(dim(write_3d_array)){
+  if(length(chunking) != length(dim(write_3d_array))){
     stop('Chunking dimension must match dataset dimension')
   }
   message(paste(c("chunk sizes:", chunking), collapse="\t"))
